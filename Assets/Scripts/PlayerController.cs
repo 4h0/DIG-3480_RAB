@@ -2,39 +2,67 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class PlayerController : MonoBehaviour
 {
-    public Text scoreText;
+    public static int whichLevel;
+    public static int savedScore;
+
+    public Text winText;
+
+    public GameObject pickUpListParent;
+    public GameObject harmfulPickUpListParent;
 
     private Rigidbody playerRigidBody;
 
-    public float speed;
-
-    private float moveHorizontal;
-    private float moveVertical;
-    private int score;
+    private Material playerMaterial;
 
     private Vector3 moving;
 
+    private GameController gameController;
+
+    public float speed;
+
+    public int score;
+    public int numberOfPickup;
+    public int numberOfHarmfulPickup;
+
+    private bool nextLevelCalled;
+
+    private float moveHorizontal;
+    private float moveVertical;
+
     private void Awake()
     {
-        playerRigidBody = GetComponent<Rigidbody>();
+        gameController = FindObjectOfType<GameController>();
 
-        score = 0;
+        playerRigidBody = GetComponent<Rigidbody>();
+        playerMaterial = GetComponent<Renderer>().material;
+
+        winText.enabled = false;
+
+        score = savedScore;
+        nextLevelCalled = false;
+    }
+
+    private void Start()
+    {
+        numberOfPickup = pickUpListParent.transform.childCount;
+        numberOfHarmfulPickup = harmfulPickUpListParent.transform.childCount;
     }
 
     private void Update()
     {
-        if (score < 9)
-        {
-            scoreText.text = "Player Score: " + score;
-        }
-        if (score >= 9)
-        {
-            scoreText.text = "You Win";
+        playerMaterial.color = new Color(this.transform.position.x, this.transform.position.y, this.transform.position.z);
 
-            Time.timeScale = 0;
+        if(gameController.gameEnd && !nextLevelCalled)
+        {
+            speed = 0;
+
+            Time.timeScale = 0.1f;
+
+            StartCoroutine(SwitchSceneCountDown());
         }
     }
 
@@ -48,6 +76,45 @@ public class PlayerController : MonoBehaviour
         playerRigidBody.AddForce(moving * speed);
     }
 
+    IEnumerator SwitchSceneCountDown()
+    {
+        if (numberOfPickup <= 0)
+        {
+            nextLevelCalled = true;
+
+            winText.text = "You Finished with a score of: " + score;
+            winText.enabled = true;
+
+            whichLevel++;
+            Debug.Log(whichLevel);
+            savedScore = score;
+
+            yield return new WaitForSeconds(.3f);
+
+            if (whichLevel <= 1)
+            {
+                SceneManager.LoadScene("NextLevel");
+            }
+            else
+            {
+                Application.Quit();
+            }
+        }
+        else
+        {
+            gameController.scoreText.enabled = false;
+            gameController.countText.enabled = false;
+            gameController.timerText.enabled = false;
+
+            winText.text = "YOU LOSE";
+            winText.enabled = true;
+
+            yield return new WaitForSeconds(.3f);
+
+            Application.Quit();
+        }
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if(other.tag == "PickUp")
@@ -55,6 +122,15 @@ public class PlayerController : MonoBehaviour
             other.gameObject.SetActive(false);
 
             score++;
+            numberOfPickup--;
+        }
+
+        if (other.tag == "Harmful")
+        {
+            other.gameObject.SetActive(false);
+
+            score--;
+            numberOfHarmfulPickup--;
         }
     }
 
